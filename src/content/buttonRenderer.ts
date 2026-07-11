@@ -15,8 +15,6 @@ let currentVideo: YouTubeVideoInfo | null = null;
 let requestToken = 0;
 
 export function renderOpenInStremioButton(video: YouTubeVideoInfo, doc: Document = document): boolean {
-  const titleElement = findTitleElement(doc);
-  if (!titleElement) return false;
   const changedVideo = currentVideo?.videoId !== video.videoId;
   currentVideo = video;
   const row = getOrCreateButtonRow(doc);
@@ -26,8 +24,7 @@ export function renderOpenInStremioButton(video: YouTubeVideoInfo, doc: Document
     resetUi(row, button);
   }
   if (!row.contains(button)) row.prepend(button);
-  if (titleElement.nextElementSibling !== row) titleElement.insertAdjacentElement("afterend", row);
-  return true;
+  return attachButtonRow(row, doc);
 }
 
 export function removeOpenInStremioButton(doc: Document = document): void {
@@ -38,6 +35,28 @@ export function removeOpenInStremioButton(doc: Document = document): void {
 
 function findTitleElement(doc: Document): Element | null {
   return doc.querySelector("ytd-watch-metadata h1") ?? doc.querySelector("h1.title") ?? doc.querySelector("#title h1");
+}
+
+function attachButtonRow(row: HTMLElement, doc: Document): boolean {
+  const titleElement = findTitleElement(doc);
+  if (titleElement) {
+    if (titleElement.nextElementSibling !== row) titleElement.insertAdjacentElement("afterend", row);
+    return true;
+  }
+
+  const metadataContainer = doc.querySelector("ytd-watch-metadata #above-the-fold")
+    ?? doc.querySelector("ytd-watch-metadata")
+    ?? doc.querySelector("#below");
+  if (!metadataContainer) return false;
+
+  const topRow = metadataContainer.querySelector("#top-row, #owner, #actions");
+  if (topRow?.parentElement === metadataContainer) {
+    if (topRow.previousElementSibling !== row) topRow.insertAdjacentElement("beforebegin", row);
+    return true;
+  }
+
+  if (metadataContainer.firstElementChild !== row) metadataContainer.prepend(row);
+  return true;
 }
 
 function getOrCreateButtonRow(doc: Document): HTMLElement {

@@ -36,6 +36,12 @@ describe("Open in Stremio UI", () => {
     expect(document.querySelector("h1")?.nextElementSibling?.id).toBe("watcher-stremio-button-row");
   });
 
+  it("falls back to the watch metadata container when YouTube title anchors are unavailable", () => {
+    document.body.innerHTML = "<ytd-watch-metadata><div id=\"above-the-fold\"><div id=\"top-row\"></div></div></ytd-watch-metadata>";
+    expect(renderOpenInStremioButton(video("videoA001"), document)).toBe(true);
+    expect(document.querySelector("#top-row")?.previousElementSibling?.id).toBe("watcher-stremio-button-row");
+  });
+
   it("ignores a stale response after navigation to another video", async () => {
     let resolveFirst!: (response: WatcherTmdbMultiSearchResponse) => void;
     requestTmdbCandidates.mockReturnValueOnce(new Promise((resolve) => { resolveFirst = resolve; }));

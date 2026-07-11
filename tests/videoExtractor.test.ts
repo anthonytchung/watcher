@@ -25,6 +25,18 @@ describe("YouTube metadata extraction", () => {
     expect(extractCurrentVideo(document, "https://www.youtube.com/watch?v=newVideo02")).toBeNull();
   });
 
+  it("uses visible watch metadata when head metadata still belongs to the previous SPA video", () => {
+    document.body.innerHTML = `
+      <meta itemprop="videoId" content="oldVideo01">
+      <meta property="og:title" content="Old title">
+      <ytd-watch-metadata><h1>Carmen The Know-It-All | The Best | Gumball | Cartoon Network</h1></ytd-watch-metadata>
+    `;
+    expect(extractCurrentVideo(document, "https://www.youtube.com/watch?v=newVideo02")).toEqual(expect.objectContaining({
+      title: "Carmen The Know-It-All | The Best | Gumball | Cartoon Network",
+      videoId: "newVideo02"
+    }));
+  });
+
   it("recognizes only YouTube watch URLs with a video ID", () => {
     expect(isYouTubeWatchPage("https://www.youtube.com/watch?v=abc123XYZ_0")).toBe(true);
     expect(isYouTubeWatchPage("https://www.youtube.com/shorts/abc123XYZ_0")).toBe(false);

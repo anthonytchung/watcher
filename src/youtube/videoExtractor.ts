@@ -1,10 +1,13 @@
 import { cleanTitle, normalizeMediaQuery } from "./titleCleaner";
 import type { YouTubeVideoInfo } from "./types";
 
-const TITLE_SELECTORS = [
+const VISIBLE_TITLE_SELECTORS = [
   "ytd-watch-metadata h1 yt-formatted-string",
   "ytd-watch-metadata h1",
-  "h1.title",
+  "h1.title"
+];
+
+const METADATA_TITLE_SELECTORS = [
   "meta[property='og:title']",
   "meta[name='title']"
 ];
@@ -42,9 +45,11 @@ export function extractCurrentVideo(doc: Document = document, href: string = win
   }
 
   const metadataVideoId = readMetadataVideoId(doc);
-  if (metadataVideoId && metadataVideoId !== videoId) return null;
+  const visibleRawTitle = readTextFromSelectors(doc, VISIBLE_TITLE_SELECTORS);
+  const metadataLooksStale = Boolean(metadataVideoId && metadataVideoId !== videoId);
+  if (metadataLooksStale && !visibleRawTitle) return null;
 
-  const rawTitle = readTextFromSelectors(doc, TITLE_SELECTORS) || doc.title;
+  const rawTitle = visibleRawTitle || readTextFromSelectors(doc, METADATA_TITLE_SELECTORS) || doc.title;
   const title = cleanTitle(rawTitle);
   const normalizedQuery = normalizeMediaQuery(title);
 
