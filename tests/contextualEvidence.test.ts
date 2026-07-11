@@ -19,6 +19,22 @@ describe("contextual media evidence", () => {
     expect(selectContextualSearchTitle(evidence)).toBe("Adventure Time");
   });
 
+  it("promotes a show channel when a pipe-separated title segment identifies the series", () => {
+    const evidence = collectContextualMediaEvidence(video({
+      channelName: "The Amazing World of Gumball",
+      description: "Gumball, Darwin, Anais and Penny are featured in Cartoon Network's comedy series. #TAWOG #Gumball",
+      title: "Carmen The Know-It-All | The Best | Gumball | Cartoon Network"
+    }));
+
+    expect(evidence.probableTitles).toEqual(expect.arrayContaining([
+      "The Amazing World of Gumball",
+      "Gumball"
+    ]));
+    expect(evidence.probableTitles[0]).toBe("The Amazing World of Gumball");
+    expect(evidence.mediaTypeHint).toBe("series");
+    expect(selectContextualSearchTitle(evidence)).toBe("The Amazing World of Gumball");
+  });
+
   it.each([
     {
       expected: { mediaTypeHint: "movie", title: "The Batman", years: [2022] },
@@ -58,10 +74,10 @@ describe("contextual media evidence", () => {
   });
 });
 
-function video(input: { description?: string; title: string }): YouTubeVideoInfo {
+function video(input: { channelName?: string; description?: string; title: string }): YouTubeVideoInfo {
   const normalizedQuery = normalizeMediaQuery(input.title);
   return {
-    channelName: "Movie Clips",
+    channelName: input.channelName ?? "Movie Clips",
     description: input.description ?? "",
     normalizedQuery,
     probableMediaTitle: normalizedQuery.probableTitle,

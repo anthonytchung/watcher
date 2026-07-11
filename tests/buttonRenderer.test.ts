@@ -12,6 +12,7 @@ vi.mock("../src/content/tmdbSearchClient", () => ({ requestTmdbCandidates }));
 vi.mock("../src/content/stremioWebLauncher", () => ({ openStremioWebUrl }));
 
 import { renderOpenInStremioButton, removeOpenInStremioButton } from "../src/content/buttonRenderer";
+import { normalizeMediaQuery } from "../src/youtube/titleCleaner";
 
 describe("Open in Stremio UI", () => {
   beforeEach(() => {
@@ -150,6 +151,26 @@ describe("Open in Stremio UI", () => {
     expect(document.querySelector(".watcher-secondary-action")).toBeNull();
   });
 
+  it("uses contextual show evidence for the manual search fallback", async () => {
+    requestTmdbCandidates.mockResolvedValueOnce({
+      ok: true,
+      query: "The Amazing World of Gumball",
+      result: { candidates: [], confidenceThreshold: 0.74, kind: "needs_selection" }
+    });
+    renderOpenInStremioButton(video("videoA001", {
+      channelName: "The Amazing World of Gumball",
+      description: "Gumball and Darwin in Cartoon Network's comedy series. #TAWOG #Gumball",
+      title: "Carmen The Know-It-All | The Best | Gumball | Cartoon Network"
+    }), document);
+    (document.querySelector("#watcher-open-in-stremio") as HTMLButtonElement).click();
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(requestTmdbCandidates).toHaveBeenCalledWith(expect.objectContaining({
+      cleanedTitle: "The Amazing World of Gumball"
+    }));
+    expect(document.querySelector<HTMLInputElement>(".watcher-manual-search input")?.value).toBe("The Amazing World of Gumball");
+  });
+
   it("opens Stremio Web search in a new tab request without navigating the YouTube tab", async () => {
     requestTmdbCandidates.mockResolvedValueOnce({ error: { code: "TMDB_PROXY_NOT_CONFIGURED", message: "not configured" }, ok: false });
     renderOpenInStremioButton(video("videoA001"), document);
@@ -218,9 +239,12 @@ function bestMatchResponse(): WatcherTmdbMultiSearchResponse {
   };
 }
 
-function video(videoId: string): YouTubeVideoInfo {
+function video(videoId: string, overrides: Partial<YouTubeVideoInfo> = {}): YouTubeVideoInfo {
+  const title = overrides.title ?? "Dune Official Trailer";
+  const normalizedQuery = overrides.normalizedQuery ?? normalizeMediaQuery(title);
   return {
-    channelName: "Warner Bros.", description: "", normalizedQuery: { alternativeQueries: [], probableTitle: "Dune", rawTitle: "Dune", removedQualifiers: [] },
-    probableMediaTitle: "Dune", rawTitle: "Dune", title: "Dune Official Trailer", url: `https://www.youtube.com/watch?v=${videoId}`, videoId
+    channelName: "Warner Bros.", description: "", normalizedQuery,
+    probableMediaTitle: normalizedQuery.probableTitle, rawTitle: title, title, url: `https://www.youtube.com/watch?v=${videoId}`, videoId,
+    ...overrides
   };
 }

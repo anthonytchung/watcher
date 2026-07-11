@@ -63,11 +63,14 @@ const CHAPTER_PATTERN = /^\s*(?:(?:\d{1,2}:)?\d{1,2}:\d{2})\s+(.{2,120})$/gm;
 const QUOTED_TEXT_PATTERN = /["“”']([^"“”']{4,160})["“”']/g;
 const CAPITALIZED_NAME_PATTERN = /\b(?:[A-Z][a-z]+|[A-Z]{2,})(?:\s+(?:[A-Z][a-z]+|[A-Z]{2,})){0,2}\b/g;
 const TITLE_PREFIX_SEPARATOR_PATTERN = /\s*[:|]\s*/;
+const TITLE_SEGMENT_SEPARATOR_PATTERN = /\s*[|｜•·]\s*/;
 const SCENE_VERB_PATTERN = /\b(?:leaves?|meets?|fights?|dies?|saves?|finds?|remembers?|explains?|returns?|betrays?|kills?|rescues?|confronts?|loses?|wins?|talks?|says?|tells?|discovers?)\b/i;
 const SCENE_VERB_WORD_PATTERN = /^(?:leaves?|meets?|fights?|dies?|saves?|finds?|remembers?|explains?|returns?|betrays?|kills?|rescues?|confronts?|loses?|wins?|talks?|says?|tells?|discovers?)$/i;
 const ACTOR_INTRO_PATTERN = /\b(?:starring|stars|featuring|cast|with)\s+([^.\n#]{3,180})/gi;
 const STOP_NAME_PATTERN =
   /^(?:official|trailer|teaser|movie|film|clip|scene|episode|season|review|reaction|explained|breakdown|analysis|hd|uhd|hdr|youtube|stremio|tmdb|part|full|best|new|final)$/i;
+const NON_TITLE_SEGMENT_PATTERN =
+  /^(?:official|trailer|teaser|movie|film|clip|scene|episode|season|review|reaction|explained|breakdown|analysis|hd|uhd|hdr|youtube|stremio|tmdb|part|full|best|new|final|cartoon\s+network|warner\s+bros\.?|disney\+?|netflix|hulu|prime\s+video|paramount\+?|universal\s+pictures?|sony\s+pictures?)$/i;
 
 export function collectContextualMediaEvidence(video: YouTubeVideoInfo): ContextualMediaEvidence {
   const textCorpus = [video.rawTitle, video.title, video.description, video.channelName].filter(Boolean).join("\n");
@@ -113,12 +116,46 @@ export function selectContextualSearchTitle(evidence: ContextualMediaEvidence): 
 }
 
 function buildProbableTitles(video: YouTubeVideoInfo, titlePrefix: string | null): string[] {
+  const titleSegments = extractTitleSegments(video.title);
+  const usefulSegments = titleSegments.filter(isUsefulTitleSegment);
+  const channelDerivedTitles = buildChannelDerivedTitles(video.channelName, usefulSegments);
   return uniqueStrings([
+    ...channelDerivedTitles,
+    ...usefulSegments,
     titlePrefix,
     video.normalizedQuery.probableTitle,
     video.probableMediaTitle,
     ...video.normalizedQuery.alternativeQueries
   ].filter((value): value is string => Boolean(value?.trim())).map(normalizeTitleLike));
+}
+
+function extractTitleSegments(title: string): string[] {
+  if (!TITLE_SEGMENT_SEPARATOR_PATTERN.test(title)) return [];
+  return title
+    .split(TITLE_SEGMENT_SEPARATOR_PATTERN)
+    .map(normalizeTitleLike)
+    .filter(Boolean);
+}
+
+function isUsefulTitleSegment(segment: string): boolean {
+  const normalized = normalizeComparable(segment);
+  if (!normalized || NON_TITLE_SEGMENT_PATTERN.test(segment)) return false;
+  const tokens = normalized.split(" ");
+  if (tokens.length > 8) return false;
+  return tokens.some((token) => !STOP_NAME_PATTERN.test(token));
+}
+
+function buildChannelDerivedTitles(channelName: string, titleSegments: string[]): string[] {
+  const normalizedChannel = normalizeComparable(channelName);
+  if (!normalizedChannel) return [];
+
+  return titleSegments
+    .filter((segment) => {
+      const normalizedSegment = normalizeComparable(segment);
+      if (!normalizedSegment || normalizedSegment.length < 4) return false;
+      return normalizedChannel.includes(normalizedSegment) && normalizedChannel !== normalizedSegment;
+    })
+    .map(() => normalizeTitleLike(channelName));
 }
 
 function splitTitlePrefix(title: string): { prefix: string | null; suffix: string | null } {

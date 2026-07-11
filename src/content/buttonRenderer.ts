@@ -134,24 +134,30 @@ async function searchForCurrentVideo(button: HTMLButtonElement): Promise<void> {
   if (token !== requestToken || currentVideo?.videoId !== video.videoId || !button.isConnected) return;
   setTriggerState(button, false, "Open in Stremio");
   button.setAttribute("aria-expanded", "true");
-  renderSearchResponse(row, response, video);
+  renderSearchResponse(row, response, video, contextualSearchTitle);
 }
 
-function renderSearchResponse(row: HTMLElement, response: WatcherTmdbMultiSearchResponse, video: YouTubeVideoInfo): void {
+function renderSearchResponse(
+  row: HTMLElement,
+  response: WatcherTmdbMultiSearchResponse,
+  video: YouTubeVideoInfo,
+  fallbackTitle: string
+): void {
   const panel = createPanel(row.ownerDocument);
   replacePanel(row, panel);
+  const manualSearchTitle = fallbackTitle || video.probableMediaTitle;
 
   if (!response.ok) {
     if (response.error.code === "TMDB_PROXY_NOT_CONFIGURED") {
       appendHeading(panel, "Automatic matching isn't set up");
       appendText(panel, "You can still search Stremio Web using the detected video title.", "status");
-      appendManualSearch(panel, video.probableMediaTitle, false);
+      appendManualSearch(panel, manualSearchTitle, false);
       panel.focus();
       return;
     }
     appendHeading(panel, "Search unavailable");
     appendText(panel, "The matching service could not be reached. You can still search by title.", "alert");
-    appendManualSearch(panel, video.probableMediaTitle, false);
+    appendManualSearch(panel, manualSearchTitle, false);
     appendRetry(panel);
     panel.focus();
     return;
@@ -161,7 +167,7 @@ function renderSearchResponse(row: HTMLElement, response: WatcherTmdbMultiSearch
   if (candidates.length === 0) {
     appendHeading(panel, "Couldn't identify this title");
     appendText(panel, "Try searching by movie or series name.", "status");
-    appendManualSearch(panel, video.probableMediaTitle, false);
+    appendManualSearch(panel, manualSearchTitle, false);
     panel.focus();
     return;
   }
@@ -174,7 +180,7 @@ function renderSearchResponse(row: HTMLElement, response: WatcherTmdbMultiSearch
     appendText(panel, "A few titles look similar.", "status");
     appendCandidatePicker(panel, candidates, video);
   }
-  appendManualSearch(panel, video.probableMediaTitle, true);
+  appendManualSearch(panel, manualSearchTitle, true);
   panel.focus();
 }
 

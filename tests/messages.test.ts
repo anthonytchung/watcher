@@ -1,8 +1,9 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { handleRuntimeMessage, isOpenStremioWebRequest, isTmdbMultiSearchRequest } from "../src/background/messages";
 import { TmdbProxySearchError } from "../src/background/tmdbProxyClient";
 import { WATCHER_OPEN_STREMIO_WEB, WATCHER_TMDB_MULTI_SEARCH } from "../src/messages/tmdbMessages";
+import type { TmdbCandidateSearchResponse } from "../src/tmdb/types";
 
 const validRequest = {
   payload: { cleanedTitle: "Dune", videoId: "n9xhJrPXop4" },
@@ -69,6 +70,42 @@ describe("runtime message validation", () => {
     });
   });
 
+  it("tries contextual title alternatives when the first TMDb query has no candidates", async () => {
+    const searchCandidates = vi.fn(async (query: string): Promise<TmdbCandidateSearchResponse> => ({
+      candidates: query === "The Amazing World of Gumball" ? [gumballCandidate()] : [],
+      query,
+      source: "tmdb"
+    }));
+    const request = {
+      ...validRequest,
+      payload: {
+        ...validRequest.payload,
+        cleanedTitle: "The Amazing World of Gumball",
+        contextualEvidence: {
+          ...contextualEvidence(),
+          channelName: "The Amazing World of Gumball",
+          cleanedTitle: "Carmen The Know-It-All",
+          hashtags: ["#TAWOG", "#Gumball"],
+          mediaTypeHint: "series" as const,
+          probableTitles: ["Carmen The Know-It-All", "The Amazing World of Gumball", "Gumball"],
+          rawTitle: "Carmen The Know-It-All | The Best | Gumball | Cartoon Network"
+        }
+      }
+    };
+
+    await expect(handleRuntimeMessage(
+      request,
+      "https://www.youtube.com/watch?v=n9xhJrPXop4",
+      undefined,
+      searchCandidates
+    )).resolves.toEqual(expect.objectContaining({
+      ok: true,
+      query: "The Amazing World of Gumball"
+    }));
+    expect(searchCandidates).toHaveBeenCalledWith("Carmen The Know-It-All");
+    expect(searchCandidates).toHaveBeenCalledWith("The Amazing World of Gumball");
+  });
+
   it("accepts valid Stremio Web tab-open requests", () => {
     expect(isOpenStremioWebRequest(validOpenRequest)).toBe(true);
   });
@@ -127,5 +164,26 @@ function contextualEvidence() {
     videoUrl: "https://www.youtube.com/watch?v=n9xhJrPXop4",
     yearHints: [],
     youtubeVideoId: "n9xhJrPXop4"
+  };
+}
+
+function gumballCandidate() {
+  return {
+    actorNames: [],
+    backdropPath: null,
+    imdbId: "tt1942683",
+    mediaType: "tv" as const,
+    networkNames: ["Cartoon Network"],
+    originalTitle: "The Amazing World of Gumball",
+    overview: "The life of Gumball Watterson and his family.",
+    popularity: 100,
+    posterPath: null,
+    productionCompanyNames: ["Cartoon Network Studios"],
+    releaseDate: "2011-05-03",
+    title: "The Amazing World of Gumball",
+    tmdbId: 37606,
+    voteAverage: 8,
+    voteCount: 1000,
+    year: "2011"
   };
 }

@@ -50,10 +50,12 @@ async function handleTmdbMultiSearchRequest(
   searchCandidates: SearchCandidates
 ): Promise<WatcherTmdbMultiSearchResponse> {
   try {
-    const query = request.payload.contextualEvidence
-      ? selectContextualSearchTitle(request.payload.contextualEvidence)
-      : request.payload.cleanedTitle;
-    const result = await searchCandidates(query);
+    const queries = buildTmdbSearchQueries(request);
+    let result = await searchCandidates(queries[0]);
+    for (const query of queries.slice(1)) {
+      if (result.candidates.length > 0) break;
+      result = await searchCandidates(query);
+    }
     const selection = selectTmdbCandidate(
       result.candidates,
       {
@@ -94,6 +96,17 @@ async function handleTmdbMultiSearchRequest(
       ok: false
     };
   }
+}
+
+function buildTmdbSearchQueries(request: WatcherTmdbMultiSearchRequest): string[] {
+  const contextualEvidence = request.payload.contextualEvidence;
+  const contextualTitle = contextualEvidence ? selectContextualSearchTitle(contextualEvidence) : undefined;
+  return uniqueStrings([
+    contextualTitle,
+    request.payload.cleanedTitle,
+    ...(contextualEvidence?.probableTitles ?? []),
+    ...(request.payload.alternativeQueries ?? [])
+  ].filter((query): query is string => Boolean(query?.trim())).map((query) => query.trim().slice(0, MAX_TITLE_LENGTH)));
 }
 
 async function handleOpenStremioWebRequest(
@@ -176,6 +189,10 @@ function isPositiveIntegerList(value: unknown, maxItems: number): value is numbe
   return Array.isArray(value) &&
     value.length <= maxItems &&
     value.every((item) => Number.isInteger(item) && item > 0);
+}
+
+function uniqueStrings(values: string[]): string[] {
+  return [...new Set(values.filter(Boolean))];
 }
 
 export function isOpenStremioWebRequest(message: unknown): message is WatcherOpenStremioWebRequest {
