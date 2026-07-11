@@ -9,6 +9,8 @@
   "scripts": {
     "build": "vite build && vite build --config vite.background.config.ts",
     "dev": "npm run build && concurrently -k \"vite build --watch --emptyOutDir=false\" \"vite build --config vite.background.config.ts --watch\"",
+    "dev:with-proxy": "concurrently -k \"npm run proxy\" \"npm run dev\"",
+    "proxy": "node scripts/tmdb-proxy.mjs",
     "check": "npm run lint && npm run typecheck && npm test && npm run build",
     "lint": "eslint .",
     "test": "vitest run",

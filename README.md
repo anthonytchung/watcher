@@ -41,7 +41,7 @@ YouTube page
 - npm (the committed `package-lock.json` is authoritative)
 - Desktop Google Chrome or another Chromium browser that supports unpacked MV3 extensions
 - A Stremio Web account for end-to-end detail-page and playback testing
-- A server-side TMDb proxy for automatic matching
+- A TMDb API key or v4 read access token for automatic matching
 
 ## Install and Validate
 
@@ -53,7 +53,7 @@ npm test
 npm run build
 ```
 
-Run all checks with `npm run check`. For watch builds of both content and background entries, use `npm run dev`.
+Run all checks with `npm run check`. For watch builds of both content and background entries, use `npm run dev`. To run the local TMDb proxy and the extension watch build together, use `npm run dev:with-proxy`.
 
 ## Configuration
 
@@ -64,13 +64,66 @@ cp .env.example .env
 ```
 
 ```dotenv
-VITE_TMDB_MULTI_SEARCH_PROXY_URL=https://your-server.example.com/api/tmdb/multi-search
+VITE_TMDB_MULTI_SEARCH_PROXY_URL=http://localhost:8787/api/tmdb/multi-search
 VITE_TMDB_CONFIDENCE_THRESHOLD=0.74
+
+# Server-only values used by npm run proxy. Do not use a VITE_ prefix for secrets.
+TMDB_READ_ACCESS_TOKEN=your_tmdb_v4_read_access_token
+TMDB_API_KEY=
+TMDB_PROXY_PORT=8787
+TMDB_PROXY_ALLOWED_ORIGINS=
 ```
 
-Both variables are build-time values. Anything prefixed with `VITE_` is inspectable in the built extension, so the URL may be public but a TMDb API key or bearer token must never be placed there.
+The extension reads only the `VITE_` values at build time. Anything prefixed with `VITE_` is inspectable in the built extension, so the proxy URL may be public but a TMDb API key or bearer token must never be placed in a `VITE_` variable.
 
 The build derives one exact `host_permissions` origin from the proxy URL. HTTPS is required except for `http://localhost` and `http://127.0.0.1`. Rebuild and reload the extension whenever the proxy URL changes.
+
+### Local TMDb Proxy
+
+This repo includes a small local proxy so automatic matching can run without exposing your TMDb credential in the browser extension.
+
+1. Copy the example environment file.
+
+```bash
+cp .env.example .env
+```
+
+2. Paste either your TMDb v4 read access token or v3 API key into `.env`.
+
+```dotenv
+TMDB_READ_ACCESS_TOKEN=your_tmdb_v4_read_access_token
+TMDB_API_KEY=
+```
+
+Prefer `TMDB_READ_ACCESS_TOKEN` when available. Leave `TMDB_API_KEY` empty if you use the token.
+
+3. Start the proxy.
+
+```bash
+npm run proxy
+```
+
+The proxy listens at `http://localhost:8787/api/tmdb/multi-search` by default. It loads `.env`, calls TMDb server-side, enriches the top movie/TV results with IMDb IDs, cast, networks, and production companies, and returns the response shape the extension already expects.
+
+4. In another terminal, rebuild or watch the extension.
+
+```bash
+npm run build
+```
+
+or:
+
+```bash
+npm run dev
+```
+
+Then reload the unpacked extension in Chrome or Arc. You can also run the proxy and watcher together with:
+
+```bash
+npm run dev:with-proxy
+```
+
+The local proxy reflects CORS only for `chrome-extension://` origins, localhost origins, or exact origins listed in `TMDB_PROXY_ALLOWED_ORIGINS`. Use a comma-separated list for deployed proxy origins if you move this server elsewhere.
 
 ### Proxy Contract
 
@@ -81,7 +134,7 @@ GET <proxy-url>?query=<encoded-title>&include_adult=false&language=en-US
 Accept: application/json
 ```
 
-The proxy should authenticate to TMDb server-side, call `/3/search/multi`, filter or enrich the top results, and return a TMDb-compatible object containing `page` and `results`. Watcher accepts movies and TV results and ignores people and adult results.
+The included proxy authenticates to TMDb server-side, calls `/3/search/multi`, enriches the top movie and TV results with details, and returns a TMDb-compatible object containing `page` and `results`. Watcher accepts movies and TV results and ignores people and adult results.
 
 For exact Stremio detail links, enrich each returned result with either:
 
@@ -99,19 +152,20 @@ or:
 }
 ```
 
-Optional `credits.cast`, `networks`, and `production_companies` fields improve actor and official-channel scoring. Raw TMDb multi-search does not include those fields. The proxy must enforce its own schema validation, query limits, timeout, caching/rate limiting, and secret-safe logging.
+Optional `credits.cast`, `networks`, and `production_companies` fields improve actor and official-channel scoring. Raw TMDb multi-search does not include those fields, so the included proxy requests detail enrichment for the top results.
 
-CORS should allow the deployed extension origin. Unpacked extension IDs can change, so local development origins must be added deliberately rather than using unrestricted production CORS.
+CORS should allow the deployed extension origin. Unpacked extension IDs can change; the local proxy allows extension origins for development, but a deployed proxy should use explicit allowed origins.
 
 ## Build and Load Unpacked
 
 1. Configure `.env` if automatic matching is desired.
-2. Run `npm run build`.
-3. Open `chrome://extensions`.
-4. Enable **Developer mode**.
-5. Click **Load unpacked**.
-6. Select this project's `dist/` directory.
-7. Open a standard `https://www.youtube.com/watch?v=...` page.
+2. Start `npm run proxy` if using the included local TMDb proxy.
+3. Run `npm run build`.
+4. Open `chrome://extensions`.
+5. Enable **Developer mode**.
+6. Click **Load unpacked**.
+7. Select this project's `dist/` directory.
+8. Open a standard `https://www.youtube.com/watch?v=...` page.
 
 After changes, rebuild and click the extension's reload control on `chrome://extensions`, then refresh the YouTube tab. The build generates `dist/content.js`, `dist/background.js`, and `dist/manifest.json`; no manual copying is required.
 
@@ -179,8 +233,9 @@ Final extension permissions are empty. Content-script page access is restricted 
 ## Troubleshooting
 
 - **No button:** only standard `/watch?v=...` pages are supported. Reload the extension and YouTube tab after rebuilding.
-- **Proxy not configured:** create `.env`, rebuild, and reload the unpacked extension.
-- **Network error:** verify HTTPS, proxy CORS for the current extension origin, and the generated `dist/manifest.json` host permission.
+- **Proxy not configured:** create `.env`, keep `VITE_TMDB_MULTI_SEARCH_PROXY_URL=http://localhost:8787/api/tmdb/multi-search`, rebuild, and reload the unpacked extension.
+- **Proxy says credential is not configured:** paste `TMDB_READ_ACCESS_TOKEN` or `TMDB_API_KEY` into `.env`, then restart `npm run proxy`.
+- **Network error:** verify `npm run proxy` is still running, verify HTTPS for non-local proxies, check CORS for the current extension origin, and inspect the generated `dist/manifest.json` host permission.
 - **Candidates only search by title:** enrich proxy results with a valid IMDb external ID.
 - **No Stremio Web tab opens:** reload the extension, inspect the service worker console, and verify the generated URL starts with `https://web.stremio.com/#/`.
 

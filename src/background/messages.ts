@@ -22,18 +22,20 @@ const MAX_TITLE_LENGTH = 200;
 const MAX_CONTEXT_LIST_LENGTH = 12;
 
 type OpenTab = (url: string) => Promise<number | undefined>;
+type SearchCandidates = typeof searchTmdbCandidates;
 
 export function handleRuntimeMessage(
   message: unknown,
   senderUrl?: string,
-  openTab: OpenTab = openStremioWebTab
+  openTab: OpenTab = openStremioWebTab,
+  searchCandidates: SearchCandidates = searchTmdbCandidates
 ): Promise<WatcherRuntimeResponse> | undefined {
   if (!isAllowedSender(senderUrl)) {
     return undefined;
   }
 
   if (isTmdbMultiSearchRequest(message)) {
-    return handleTmdbMultiSearchRequest(message);
+    return handleTmdbMultiSearchRequest(message, searchCandidates);
   }
 
   if (isOpenStremioWebRequest(message)) {
@@ -44,13 +46,14 @@ export function handleRuntimeMessage(
 }
 
 async function handleTmdbMultiSearchRequest(
-  request: WatcherTmdbMultiSearchRequest
+  request: WatcherTmdbMultiSearchRequest,
+  searchCandidates: SearchCandidates
 ): Promise<WatcherTmdbMultiSearchResponse> {
   try {
     const query = request.payload.contextualEvidence
       ? selectContextualSearchTitle(request.payload.contextualEvidence)
       : request.payload.cleanedTitle;
-    const result = await searchTmdbCandidates(query);
+    const result = await searchCandidates(query);
     const selection = selectTmdbCandidate(
       result.candidates,
       {

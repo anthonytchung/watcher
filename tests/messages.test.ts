@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { handleRuntimeMessage, isOpenStremioWebRequest, isTmdbMultiSearchRequest } from "../src/background/messages";
+import { TmdbProxySearchError } from "../src/background/tmdbProxyClient";
 import { WATCHER_OPEN_STREMIO_WEB, WATCHER_TMDB_MULTI_SEARCH } from "../src/messages/tmdbMessages";
 
 const validRequest = {
@@ -50,7 +51,19 @@ describe("runtime message validation", () => {
   });
 
   it("returns a serializable missing-configuration error", async () => {
-    await expect(handleRuntimeMessage(validRequest, "https://www.youtube.com/watch?v=n9xhJrPXop4")).resolves.toEqual({
+    const searchCandidates = async () => {
+      throw new TmdbProxySearchError(
+        "TMDB_PROXY_NOT_CONFIGURED",
+        "TMDb search requires VITE_TMDB_MULTI_SEARCH_PROXY_URL to point at a server-side proxy."
+      );
+    };
+
+    await expect(handleRuntimeMessage(
+      validRequest,
+      "https://www.youtube.com/watch?v=n9xhJrPXop4",
+      undefined,
+      searchCandidates
+    )).resolves.toEqual({
       error: expect.objectContaining({ code: "TMDB_PROXY_NOT_CONFIGURED" }),
       ok: false
     });
