@@ -12,9 +12,13 @@ export function injectStyles(doc: Document = document): void {
       --ys-hover: #f2f2f2; --ys-selected: #f0edfa; --ys-error: #b3261e; --ys-border: #d9d9d9; --ys-border-soft: #e8e8e8;
       --ys-focus: #1a73e8; --ys-radius-sm: 8px; --ys-radius-md: 14px; --ys-shadow: 0 12px 32px rgba(0,0,0,.18);
       --ys-space-1: 4px; --ys-space-2: 8px; --ys-space-3: 12px; --ys-space-4: 16px; --ys-duration: 150ms;
-      color: var(--ys-text); display: block; font: 14px/1.4 Roboto, Arial, sans-serif; margin: 8px 0 6px;
-      position: relative; width: max-content; z-index: 2200;
+      align-items: center; box-sizing: border-box; color: var(--ys-text); display: flex; flex-wrap: wrap; font: 14px/1.4 Roboto, Arial, sans-serif;
+      gap: 6px 8px; margin: 6px 0 8px; max-width: 100%; position: relative; width: 100%; z-index: 2200;
     }
+    #watcher-stremio-button-row::after {
+      background: var(--ys-border-soft); content: ""; flex: 1 1 140px; height: 1px; min-width: 40px; opacity: .8;
+    }
+    #watcher-stremio-button-row:has(#watcher-stremio-panel)::after { display: none; }
     html[dark] #watcher-stremio-button-row {
       --ys-surface: #2b2b2b; --ys-surface-hover: #363636; --ys-elevated: #242424; --ys-field: #1f1f1f;
       --ys-text: #f1f1f1; --ys-text-secondary: #b8b8b8; --ys-text-muted: #9a9a9a;
@@ -25,7 +29,7 @@ export function injectStyles(doc: Document = document): void {
     #watcher-stremio-button-row button, #watcher-stremio-button-row input { font: inherit; }
     #watcher-open-in-stremio {
       align-items: center; background: var(--ys-surface); border: 1px solid var(--ys-border); border-radius: 10px; color: var(--ys-text);
-      cursor: pointer; display: inline-flex; font-weight: 500; min-height: 34px; padding: 0 12px;
+      cursor: pointer; display: inline-flex; font-weight: 500; justify-content: center; min-height: 34px; min-width: 176px; padding: 0 14px;
       transition: background var(--ys-duration), border-color var(--ys-duration), color var(--ys-duration);
       white-space: nowrap;
     }
@@ -52,7 +56,7 @@ export function injectStyles(doc: Document = document): void {
     }
     #watcher-stremio-panel {
       animation: watcher-panel-in var(--ys-duration) ease-out; background: var(--ys-elevated); border: 1px solid var(--ys-border-soft);
-      border-radius: var(--ys-radius-md); box-shadow: var(--ys-shadow); box-sizing: border-box; left: 0; margin-top: var(--ys-space-2);
+      align-self: flex-start; border-radius: var(--ys-radius-md); box-shadow: var(--ys-shadow); box-sizing: border-box; flex: 0 0 auto; left: 0; margin-top: var(--ys-space-2); order: 20;
       max-height: min(560px, calc(100vh - 160px)); overflow: auto; padding: var(--ys-space-4); position: relative;
       width: min(392px, calc(100vw - 32px));
     }
